@@ -8,6 +8,11 @@ from datetime import date, datetime
 
 load_dotenv()
 
+logging.basicConfig(
+	level=logging.INFO,
+	format="%(asctime)s | %(levelname)s | %(message)s "
+)
+
 
 def _assess_refund(user: str, items: list[PurchaseItem]) -> tuple[str, int]:
     if user not in users_data:
