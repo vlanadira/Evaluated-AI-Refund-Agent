@@ -6,7 +6,7 @@ users_data = {
         },
         "dht22_temperature_sensor": {
             "price": 65000,
-            "date": "2026-10-3"
+            "date": "2026-11-3"
         }
     },
     "customer_002": {
@@ -28,7 +28,7 @@ users_data = {
     "customer_004": {
         "raspberry_pi_4": {
             "price": 1150000,
-            "date": "2026-10-2"
+            "date": "2026-11-2"
         },
         "soil_moisture_sensor": {
             "price": 25000,

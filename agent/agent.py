@@ -3,7 +3,7 @@ import re
 from dotenv import load_dotenv
 from langchain.agents import create_agent
 from langchain.messages import HumanMessage
-from langchain_groq import ChatGroq
+from langchain_openai import ChatOpenAI
 from langgraph.checkpoint.memory import InMemorySaver
 from uuid import uuid4
 
@@ -48,9 +48,11 @@ def clarify_all_items_selection(text: str, username: str | None) -> str:
 
 load_dotenv()
 
-model = ChatGroq(
-    model="openai/gpt-oss-20b",
-    temperature=0
+model = ChatOpenAI(
+    model="gpt-6-luna",
+    temperature=0,
+    reasoning_effort="none",
+    use_responses_api=False,
 )
 
 agent = create_agent(

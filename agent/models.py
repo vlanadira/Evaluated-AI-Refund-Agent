@@ -6,10 +6,11 @@ from objects import Answer
 load_dotenv()
 
 model = init_chat_model(
-    model="openai/gpt-oss-20b",
-    model_provider="groq",
+    model="gpt-6-luna",
+    model_provider="openai",
     temperature=0,
-    reasoning_format="parsed"
+    reasoning_effort="none",
+    use_responses_api=False,
 )
 
 structured_model = model.with_structured_output(
