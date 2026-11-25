@@ -8,7 +8,6 @@ from langgraph.checkpoint.memory import InMemorySaver
 from uuid import uuid4
 
 from data import users_data
-from tools import calculate_right_refund, get_todays_date
 from tools import issue_refund_ticket, get_user_purchase_history
 from objects import Answer
 from prompts import agent_system_prompt
@@ -59,9 +58,7 @@ agent = create_agent(
     model=model,
     system_prompt=agent_system_prompt,
     tools=[
-        calculate_right_refund,
         get_user_purchase_history,
-        get_todays_date,
         issue_refund_ticket
     ],
     checkpointer=InMemorySaver()

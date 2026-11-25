@@ -63,6 +63,7 @@ The agent is considered successful if it follows all applicable rules below.
 
 6. NON-REFUND REQUESTS
 - If the user asks questions or makes requests unrelated to refunds, the agent should respond helpfully using the available information and tools.
+- If the user explicitly says they do not want a refund and only asks what they purchased, the agent should list the purchases without mentioning refund status or eligibility.
 - The agent must not issue, calculate, or initiate refund tickets for requests that do not explicitly concern a refund.
 - General inquiries must not trigger refund-related actions.
 

@@ -73,8 +73,8 @@ def calculate_right_refund(user: str, items: list[PurchaseItem]) -> str:
 
 @tool
 def issue_refund_ticket(user: str, items: list[PurchaseItem]) -> str:
-    """Issues a refund ticket for the eligible selected items and calculates its amount."""
-    logging.info(f"Using issue_refund_ticket for user: {user}")
+    """Checks selected items' eligibility and issues a ticket only for eligible items."""
+    logging.info(f"Checking eligibility and issuing refund ticket for user: {user}")
     assessment, refund_amount = _assess_refund(user, items)
     if refund_amount == 0:
         return f"No refund ticket was issued.\n{assessment}"
@@ -86,13 +86,6 @@ def issue_refund_ticket(user: str, items: list[PurchaseItem]) -> str:
     )
 
 
-@tool
-def get_todays_date() -> str:
-    """This tool will return today's date"""
-    logging.info("Using the date tool")
-    return str(date.today())
-
-
 # print(get_user_purchase_history.invoke({"user": "customer_001"}))
 
 # print(calculate_right_refund.invoke({
@@ -102,8 +95,6 @@ def get_todays_date() -> str:
 #         {"name": "dht22_temperature_sensor"}
 #     ]
 # }))
-
-# print(get_todays_date.invoke("customer_001"))
 
 # print(issue_refund_ticket.invoke({
 #     "user": "customer_001",

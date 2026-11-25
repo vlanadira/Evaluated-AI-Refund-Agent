@@ -9,9 +9,7 @@ dataset = EvaluationDataset(
             expected_output="A refund ticket for 190.000 has been issued successfully.",
             expected_tools=[
                 ToolCall(name="get_user_purchase_history"),
-                ToolCall(name="calculate_right_refund"),
-                ToolCall(name="issue_refund_ticket"),
-                ToolCall(name="get_todays_date")
+                ToolCall(name="issue_refund_ticket")
             ]
         ),
         Golden(
@@ -19,14 +17,12 @@ dataset = EvaluationDataset(
             expected_output="A refund ticket for 125.000 has been issued successfully.",
             expected_tools=[
                 ToolCall(name="get_user_purchase_history"),
-                ToolCall(name="calculate_right_refund"),
-                ToolCall(name="issue_refund_ticket"),
-                ToolCall(name="get_todays_date")
+                ToolCall(name="issue_refund_ticket")
             ]
         ),
         Golden(
             input="I am customer_001, I would like no refund, I just want to know what I purchased",
-            expected_output="No refund tickets were issued, only a list of item(s) they bought",
+            expected_output="List the customer's purchased items only, without mentioning refund status or eligibility",
             expected_tools=[
                 ToolCall(name="get_user_purchase_history")
             ]
@@ -43,7 +39,7 @@ dataset = EvaluationDataset(
             expected_output="No refund given because it is outside of the 30 days guideline",
             expected_tools=[
                 ToolCall(name="get_user_purchase_history"),
-                ToolCall(name="get_todays_date")
+                ToolCall(name="issue_refund_ticket")
             ]
         ),
         Golden(
@@ -51,9 +47,7 @@ dataset = EvaluationDataset(
             expected_output="A refund ticket for 1.150.000 has been issued successfully only for the raspberry_pi_4. The oled_display_0_96 is not eligible for a refund because it is outside 30 days refund policy",
             expected_tools=[
                 ToolCall(name="get_user_purchase_history"),
-                ToolCall(name="calculate_right_refund"),
-                ToolCall(name="issue_refund_ticket"),
-                ToolCall(name="get_todays_date")
+                ToolCall(name="issue_refund_ticket")
             ]
         ),
         Golden(
