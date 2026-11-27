@@ -5,6 +5,16 @@ from deepeval.test_case import ToolCall
 dataset = EvaluationDataset(
     goldens=[
         Golden(
+            input="I would like to request a refund",
+            expected_output="Warmly acknowledge the refund request and ask for the account username before looking up purchases. Do not say the account was not found or imply that a lookup was attempted.",
+            expected_tools=[]
+        ),
+        Golden(
+            input="Can we talk casually outside of this refund request?",
+            expected_output="Politely explain that the assistant only handles refunds and purchase questions, then invite the user to ask about one of those topics. Do not continue casual conversation or call tools.",
+            expected_tools=[]
+        ),
+        Golden(
             input="I am customer_001, I would like a refund for the esp32_devkit and dht22_temperature_sensor",
             expected_output="A refund ticket for 190.000 has been issued successfully.",
             expected_tools=[
