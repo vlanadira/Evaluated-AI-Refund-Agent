@@ -36,6 +36,7 @@ sys.path.insert(0, str(ROOT / "agent"))
 
 from agent import agent
 from data import users_data
+from tools import display_item_name
 from chat_evaluation import evaluate_conversation
 from chat_storage import (
     append_turn,
@@ -104,6 +105,7 @@ def _purchase_items_for_turn(messages):
     return [
         {
             "name": item_name,
+            "displayName": display_item_name(item_name),
             "price": details["price"],
             "date": details["date"],
         }

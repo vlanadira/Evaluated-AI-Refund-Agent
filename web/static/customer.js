@@ -42,7 +42,7 @@ function appendPurchaseCards(container, purchases) {
     info.className = "purchase-info";
     const name = document.createElement("strong");
     name.className = "purchase-name";
-    name.textContent = purchase.name;
+    name.textContent = purchase.displayName || purchase.name.replaceAll("_", " ");
     const date = document.createElement("span");
     date.className = "purchase-date";
     date.textContent = formatDate(purchase.date);

@@ -27,6 +27,7 @@ conversation and tool results provided in the input. Check that the assistant:
 - does not promise a refund arrival time that the tool did not confirm;
 - refunds only the requested, purchased items and explains ineligible items;
 - asks a relevant question when required information or confirmation is missing;
+- uses readable product names in customer-facing responses instead of internal item identifiers with underscores;
 - redirects unrelated requests without using tools or continuing that topic.
 Judge the conversation as a whole, not only its final response.
 """

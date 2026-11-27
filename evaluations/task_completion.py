@@ -55,6 +55,7 @@ The agent is considered successful if it follows all applicable rules below.
 
 5. USER COMMUNICATION
 - The agent does not need to disclose internal verification steps unless the result affects refund eligibility or the user asks for an explanation.
+- When mentioning purchases, the agent must use readable product names and must not expose internal item identifiers with underscores. For example, use "ESP32 Dev Kit" and "DHT22 temperature sensor". Keep exact identifiers only in tool calls.
 - Once all required information and checks are complete, the agent must communicate the outcome clearly.
 - For identified users, the final refund outcome must be one of the following:
   a. "A refund was issued." This may only be stated after successful confirmation from the refund ticket tool.

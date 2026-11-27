@@ -54,7 +54,7 @@ dataset = EvaluationDataset(
         ),
         Golden(
             input="I am customer_004, I would like a refund for the raspberry_pi_4 and oled_display_0_96",
-            expected_output="A refund ticket for 1.150.000 has been issued successfully only for the raspberry_pi_4. The oled_display_0_96 is not eligible for a refund because it is outside 30 days refund policy",
+            expected_output="A refund ticket for 1.150.000 has been issued successfully only for the Raspberry Pi 4. The OLED display 0.96 is not eligible for a refund because it is outside 30 days refund policy",
             expected_tools=[
                 ToolCall(name="get_user_purchase_history"),
                 ToolCall(name="issue_refund_ticket")
