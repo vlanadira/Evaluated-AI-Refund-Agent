@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f4f6f8">
+    <title>Shop Support | Refunds &amp; orders</title>
+    <link rel="stylesheet" href="/assets/styles.css">
+    <script src="/assets/customer.js" defer></script>
+  </head>
+  <body class="customer-page">
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="Shop Support home">
+        <span class="brand-mark">S</span>
+        <span class="brand-copy">
+          <strong>Shop Support</strong>
+          <span>Refunds &amp; orders</span>
+        </span>
+      </a>
+      <nav class="topbar-actions" aria-label="Main navigation">
+        <button class="text-button" id="new-chat" type="button">New chat</button>
+        <a class="nav-link" href="/developer">Developer view <span aria-hidden="true">&rarr;</span></a>
+      </nav>
+    </header>
+
+    <main class="customer-main">
+      <section class="chat-panel" aria-label="Refund support chat">
+        <div class="chat-panel-heading">
+          <div class="assistant-identity">
+            <span class="assistant-avatar large">S</span>
+            <div>
+              <h1>Refund assistant</h1>
+              <p>Here to help with refunds and purchase questions</p>
+            </div>
+          </div>
+          <span class="availability"><i></i> Ready to help</span>
+        </div>
+
+        <div class="chat-messages" id="chat-messages" role="log" aria-live="polite" aria-relevant="additions text"></div>
+
+        <div class="chat-composer">
+          <div class="quick-prompts" aria-label="Suggested messages">
+            <button type="button" data-message="I would like to know what I purchased">What have I purchased?</button>
+          </div>
+          <form id="chat-form" class="composer-form">
+            <label class="sr-only" for="chat-input">Ask about your orders or request a refund</label>
+            <textarea id="chat-input" rows="1" maxlength="5000" placeholder="Ask about your orders or request a refund"></textarea>
+            <button class="send-button" id="send-button" type="submit" aria-label="Send message">
+              <span aria-hidden="true">&uarr;</span>
+            </button>
+          </form>
+          <p class="composer-note">This assistant handles refund support and purchase questions.</p>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

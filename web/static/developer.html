@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f4f6f8">
+    <title>Agent Evals | Developer view</title>
+    <link rel="stylesheet" href="/assets/styles.css">
+    <script src="/assets/developer.js" defer></script>
+  </head>
+  <body class="developer-page">
+    <header class="topbar">
+      <a class="brand" href="/developer" aria-label="Agent evaluation dashboard">
+        <span class="brand-mark dark">E</span>
+        <span class="brand-copy">
+          <strong>Agent Evals</strong>
+          <span>Refund agent &middot; developer view</span>
+        </span>
+      </a>
+      <nav class="topbar-actions" aria-label="Main navigation">
+        <a class="nav-link back-link" href="/"><span aria-hidden="true">&larr;</span> Customer chat</a>
+      </nav>
+    </header>
+
+    <main class="dashboard-main">
+      <section class="dashboard-heading">
+        <div>
+          <p class="eyebrow">LOCAL EVALUATION DASHBOARD</p>
+          <h1>Evaluation runs</h1>
+          <p id="run-subtitle" class="muted">Loading saved evaluation results...</p>
+        </div>
+        <div class="run-controls">
+          <label class="sr-only" for="run-select">Choose evaluation run</label>
+          <select id="run-select" disabled>
+            <option value="">No runs yet</option>
+          </select>
+          <button class="primary-button" id="run-evaluation" type="button">Run evaluation</button>
+        </div>
+      </section>
+
+      <div class="job-banner" id="job-banner" hidden role="status"></div>
+
+      <section class="stat-grid" aria-label="Evaluation summary">
+        <article class="stat-card">
+          <span class="stat-label">Pass rate</span>
+          <strong class="stat-value positive" id="stat-pass-rate">--</strong>
+          <span class="stat-detail" id="stat-pass-detail">No run selected</span>
+        </article>
+        <article class="stat-card">
+          <span class="stat-label" id="stat-average-label">Task Completion (avg)</span>
+          <strong class="stat-value" id="stat-average">--</strong>
+          <span class="stat-progress"><i id="stat-average-bar"></i></span>
+        </article>
+        <article class="stat-card">
+          <span class="stat-label">Test cases</span>
+          <strong class="stat-value" id="stat-cases">--</strong>
+          <span class="stat-detail" id="stat-metrics-detail">-- metrics</span>
+        </article>
+        <article class="stat-card">
+          <span class="stat-label">Failures</span>
+          <strong class="stat-value" id="stat-failures">--</strong>
+          <span class="stat-detail" id="stat-failure-detail">Nothing to review</span>
+        </article>
+      </section>
+
+      <section class="dashboard-card aggregate-card">
+        <div class="section-heading">
+          <div>
+            <h2>Aggregate metrics</h2>
+            <p class="muted">Scores and pass rates for the selected run</p>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Metric</th>
+                <th scope="col">Average score</th>
+                <th scope="col">Pass rate</th>
+                <th scope="col">Passed / failed</th>
+                <th scope="col">Total</th>
+              </tr>
+            </thead>
+            <tbody id="metrics-table-body">
+              <tr><td class="empty-cell" colspan="5">No evaluation results yet.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="case-layout">
+        <div class="dashboard-card case-list-card">
+          <div class="section-heading">
+            <h2>Test cases</h2>
+            <span class="muted" id="case-list-summary">--</span>
+          </div>
+          <div class="case-list" id="case-list">
+            <p class="empty-state">Run an evaluation to see test cases.</p>
+          </div>
+        </div>
+
+        <article class="dashboard-card case-detail-card" id="case-detail">
+          <div class="empty-state detail-empty">Select a test case to inspect its input, tool calls, output, and metric reasons.</div>
+        </article>
+      </section>
+
+      <p class="dashboard-footnote">Evaluation runs call the configured agent and judge models and may use paid API credits. This dashboard is intended for local development.</p>
+    </main>
+  </body>
+</html>
