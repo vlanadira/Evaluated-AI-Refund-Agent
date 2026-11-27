@@ -3,6 +3,8 @@ import json
 import logging
 import math
 import os
+import re
+import sqlite3
 import subprocess
 import sys
 import threading
@@ -13,6 +15,7 @@ from urllib.parse import urlsplit
 from uuid import UUID, uuid4
 
 from dotenv import load_dotenv
+from langchain_core.messages import HumanMessage, messages_from_dict, messages_to_dict
 
 ROOT = Path(__file__).resolve().parents[1]
 WEB_ROOT = Path(__file__).resolve().parent
@@ -28,17 +31,33 @@ MAX_RUN_HISTORY = 20
 EVALUATION_TIMEOUT_SECONDS = 3_600
 
 load_dotenv(ROOT / ".env")
+sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "agent"))
 
 from agent import agent
 from data import users_data
+from chat_evaluation import evaluate_conversation
+from chat_storage import (
+    append_turn,
+    create_chat,
+    get_chat,
+    initialize_database,
+    list_chats,
+    public_chat,
+    save_evaluation,
+    set_evaluation_status,
+)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
 logger = logging.getLogger("refund_web")
 
+initialize_database()
+
 _history_lock = threading.Lock()
 _job_lock = threading.Lock()
+_chat_thread_lock = threading.Lock()
 _jobs = {}
+_chat_threads = {}
 
 
 def _message_text(content):
@@ -505,6 +524,86 @@ def _start_evaluation():
     return dict(_jobs[job_id])
 
 
+def _username_for_messages(messages, fallback=None):
+    for message in reversed(messages):
+        if getattr(message, "type", None) == "ai":
+            for call in reversed(getattr(message, "tool_calls", []) or []):
+                if call.get("name") == "get_user_purchase_history":
+                    username = (call.get("args") or {}).get("user")
+                    if isinstance(username, str) and username.strip():
+                        return username.strip()
+
+        if getattr(message, "type", None) in {"human", "user"}:
+            text = _message_text(getattr(message, "content", None)).casefold()
+            for username in users_data:
+                if re.search(rf"(?<![\w]){re.escape(username.casefold())}(?![\w])", text):
+                    return username
+            match = re.search(r"\bcustomer_\d+\b", text)
+            if match:
+                return match.group(0)
+    return fallback
+
+
+def _start_chat_evaluation(chat_id):
+    with _job_lock:
+        if any(job["status"] in {"queued", "running"} for job in _jobs.values()):
+            return None
+        job_id = f"chat-job-{uuid4().hex[:10]}"
+        job = {
+            "id": job_id,
+            "type": "chat",
+            "chatId": chat_id,
+            "status": "queued",
+            "startedAt": datetime.now().astimezone().isoformat(timespec="seconds"),
+            "finishedAt": None,
+            "error": None,
+        }
+        _jobs[job_id] = job
+        try:
+            set_evaluation_status(chat_id, "queued")
+        except Exception:
+            _jobs.pop(job_id, None)
+            raise
+
+    threading.Thread(
+        target=_run_chat_evaluation,
+        args=(job_id, chat_id),
+        daemon=True,
+        name=f"evaluation-{job_id}",
+    ).start()
+    return dict(job)
+
+
+def _run_chat_evaluation(job_id, chat_id):
+    with _job_lock:
+        _jobs[job_id]["status"] = "running"
+
+    try:
+        set_evaluation_status(chat_id, "running")
+        chat = get_chat(chat_id)
+        if chat is None:
+            raise LookupError("Chat not found.")
+        evaluation = evaluate_conversation(chat)
+        save_evaluation(chat_id, evaluation)
+        with _job_lock:
+            _jobs[job_id].update(
+                status="completed",
+                finishedAt=datetime.now().astimezone().isoformat(timespec="seconds"),
+            )
+    except Exception as error:
+        logger.exception("Chat evaluation job failed for %s", chat_id)
+        try:
+            set_evaluation_status(chat_id, "failed", str(error))
+        except Exception:
+            logger.exception("Could not save failed chat evaluation status")
+        with _job_lock:
+            _jobs[job_id].update(
+                status="failed",
+                error=str(error),
+                finishedAt=datetime.now().astimezone().isoformat(timespec="seconds"),
+            )
+
+
 class RefundWebHandler(BaseHTTPRequestHandler):
     def _send_json(self, status, payload):
         content = json.dumps(
@@ -570,6 +669,33 @@ class RefundWebHandler(BaseHTTPRequestHandler):
                 logger.exception("Could not load evaluation history")
                 self._send_json(500, {"error": str(error)})
             return
+        if path == "/api/chats":
+            try:
+                chats = list_chats()
+            except (OSError, ValueError, sqlite3.Error) as error:
+                logger.exception("Could not load customer chats")
+                self._send_json(500, {"error": str(error)})
+                return
+            self._send_json(200, {"chats": chats})
+            return
+        if path.startswith("/api/chats/"):
+            raw_chat_id = path.removeprefix("/api/chats/")
+            try:
+                chat_id = str(UUID(raw_chat_id))
+            except ValueError:
+                self._send_json(400, {"error": "Invalid chat identifier."})
+                return
+            try:
+                chat = get_chat(chat_id)
+            except (OSError, ValueError, sqlite3.Error) as error:
+                logger.exception("Could not load customer chat %s", chat_id)
+                self._send_json(500, {"error": str(error)})
+                return
+            if chat is None:
+                self._send_json(404, {"error": "Chat not found."})
+            else:
+                self._send_json(200, {"chat": public_chat(chat)})
+            return
         self._send_json(404, {"error": "Not found."})
 
     def do_POST(self):
@@ -585,6 +711,45 @@ class RefundWebHandler(BaseHTTPRequestHandler):
 
         if path == "/api/chat":
             self._handle_chat(payload)
+        elif path == "/api/chats":
+            try:
+                chat = create_chat()
+            except (OSError, ValueError, sqlite3.Error) as error:
+                logger.exception("Could not create customer chat")
+                self._send_json(500, {"error": str(error)})
+                return
+            self._send_json(201, {"chat": public_chat(chat)})
+        elif path.startswith("/api/chats/") and path.endswith("/evaluate"):
+            raw_chat_id = path.removeprefix("/api/chats/").removesuffix("/evaluate").rstrip("/")
+            try:
+                chat_id = str(UUID(raw_chat_id))
+            except ValueError:
+                self._send_json(400, {"error": "Invalid chat identifier."})
+                return
+            try:
+                chat = get_chat(chat_id)
+            except (OSError, ValueError, sqlite3.Error) as error:
+                logger.exception("Could not load customer chat %s for evaluation", chat_id)
+                self._send_json(500, {"error": str(error)})
+                return
+            if chat is None:
+                self._send_json(404, {"error": "Chat not found."})
+            elif not any(message.get("role") == "user" for message in chat["messages"]):
+                self._send_json(409, {"error": "Send at least one message before evaluating this chat."})
+            else:
+                try:
+                    job = _start_chat_evaluation(chat_id)
+                except LookupError:
+                    self._send_json(404, {"error": "Chat not found."})
+                    return
+                except (OSError, ValueError, sqlite3.Error) as error:
+                    logger.exception("Could not start evaluation for chat %s", chat_id)
+                    self._send_json(500, {"error": str(error)})
+                    return
+                if job is None:
+                    self._send_json(409, {"error": "Another evaluation is already running."})
+                else:
+                    self._send_json(202, {"job": job})
         elif path == "/api/evaluations/run":
             job = _start_evaluation()
             if job is None:
@@ -603,16 +768,38 @@ class RefundWebHandler(BaseHTTPRequestHandler):
             self._send_json(413, {"error": "Message is too long."})
             return
 
-        raw_thread_id = payload.get("threadId")
         try:
-            thread_id = str(UUID(raw_thread_id)) if raw_thread_id else str(uuid4())
-        except (ValueError, TypeError, AttributeError):
-            self._send_json(400, {"error": "Invalid chat session identifier."})
-            return
+            raw_chat_id = payload.get("chatId")
+            if raw_chat_id:
+                try:
+                    chat_id = str(UUID(raw_chat_id))
+                except (ValueError, TypeError, AttributeError):
+                    self._send_json(400, {"error": "Invalid chat identifier."})
+                    return
+                chat = get_chat(chat_id)
+                if chat is None:
+                    self._send_json(404, {"error": "Chat not found."})
+                    return
+            else:
+                chat = create_chat()
+                chat_id = chat["id"]
 
-        try:
+            if chat["evaluationStatus"] in {"queued", "running"}:
+                self._send_json(409, {"error": "Wait for this chat's evaluation to finish before continuing."})
+                return
+
+            with _chat_thread_lock:
+                thread_id = _chat_threads.get(chat_id)
+            messages = (
+                []
+                if thread_id
+                else messages_from_dict(chat["agentMessages"])
+            )
+            messages.append(HumanMessage(content=message.strip()))
+            if not thread_id:
+                thread_id = str(uuid4())
             response = agent.invoke(
-                {"messages": [{"role": "user", "content": message.strip()}]},
+                {"messages": messages},
                 config={"configurable": {"thread_id": thread_id}},
             )
             messages = response.get("messages")
@@ -629,13 +816,32 @@ class RefundWebHandler(BaseHTTPRequestHandler):
             assistant_message = _final_assistant_message(turn_messages)
             if assistant_message is None:
                 raise RuntimeError("The agent did not return a final assistant message.")
+            events = _tool_events(turn_messages)
+            purchases = _purchase_items_for_turn(turn_messages)
+            updated_chat = append_turn(
+                chat_id,
+                messages_to_dict(messages),
+                [
+                    {"role": "user", "text": message.strip()},
+                    {
+                        "role": "assistant",
+                        "text": assistant_message,
+                        "events": events,
+                        "purchases": purchases,
+                    },
+                ],
+                _username_for_messages(messages, chat["username"]),
+            )
+            with _chat_thread_lock:
+                _chat_threads[chat_id] = thread_id
             self._send_json(
                 200,
                 {
-                    "threadId": thread_id,
+                    "chatId": chat_id,
                     "message": assistant_message,
-                    "events": _tool_events(turn_messages),
-                    "purchases": _purchase_items_for_turn(turn_messages),
+                    "events": events,
+                    "purchases": purchases,
+                    "chat": public_chat(updated_chat),
                 },
             )
         except Exception:

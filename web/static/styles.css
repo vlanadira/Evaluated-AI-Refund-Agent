@@ -675,6 +675,13 @@ tbody tr:last-child td {
   font-weight: 660;
 }
 
+.metric-table-reason {
+  min-width: 240px;
+  color: #596675;
+  line-height: 1.45;
+  white-space: normal;
+}
+
 .metric-badge {
   display: inline-flex;
   padding: 4px 8px;
@@ -702,6 +709,44 @@ tbody tr:last-child td {
   gap: 6px;
   max-height: 520px;
   overflow-y: auto;
+}
+
+.conversation-transcript {
+  display: grid;
+  max-height: 520px;
+  gap: 9px;
+  overflow-y: auto;
+}
+
+.conversation-turn {
+  padding: 10px 11px;
+  background: #f7f8fa;
+  border: 1px solid #e8edf1;
+  border-radius: 9px;
+}
+
+.conversation-turn.customer-turn {
+  background: #f0f9f7;
+  border-color: #d7ebe8;
+}
+
+.conversation-role {
+  display: block;
+  margin-bottom: 5px;
+  color: #66717e;
+  font-size: 9px;
+  font-weight: 750;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.conversation-text {
+  margin: 0;
+  color: #303a45;
+  font-size: 11px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
 }
 
 .case-list-button {

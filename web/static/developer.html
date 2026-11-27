@@ -26,15 +26,16 @@
       <section class="dashboard-heading">
         <div>
           <p class="eyebrow">LOCAL EVALUATION DASHBOARD</p>
-          <h1>Evaluation runs</h1>
-          <p id="run-subtitle" class="muted">Loading saved evaluation results...</p>
+          <h1>Conversation evaluations</h1>
+          <p id="chat-subtitle" class="muted">Loading customer chats...</p>
         </div>
         <div class="run-controls">
-          <label class="sr-only" for="run-select">Choose evaluation run</label>
-          <select id="run-select" disabled>
-            <option value="">No runs yet</option>
+          <label class="sr-only" for="chat-select">Choose customer chat</label>
+          <select id="chat-select" disabled>
+            <option value="">No conversations yet</option>
           </select>
-          <button class="primary-button" id="run-evaluation" type="button">Run evaluation</button>
+          <button class="outline-button" id="refresh-chats" type="button">Refresh chats</button>
+          <button class="primary-button" id="run-evaluation" type="button" disabled>Evaluate chat</button>
         </div>
       </section>
 
@@ -47,17 +48,17 @@
           <span class="stat-detail" id="stat-pass-detail">No run selected</span>
         </article>
         <article class="stat-card">
-          <span class="stat-label" id="stat-average-label">Task Completion (avg)</span>
+          <span class="stat-label" id="stat-average-label">Average metric score</span>
           <strong class="stat-value" id="stat-average">--</strong>
           <span class="stat-progress"><i id="stat-average-bar"></i></span>
         </article>
         <article class="stat-card">
-          <span class="stat-label">Test cases</span>
+          <span class="stat-label">Conversation messages</span>
           <strong class="stat-value" id="stat-cases">--</strong>
-          <span class="stat-detail" id="stat-metrics-detail">-- metrics</span>
+          <span class="stat-detail" id="stat-metrics-detail">No chat selected</span>
         </article>
         <article class="stat-card">
-          <span class="stat-label">Failures</span>
+          <span class="stat-label">Metrics to review</span>
           <strong class="stat-value" id="stat-failures">--</strong>
           <span class="stat-detail" id="stat-failure-detail">Nothing to review</span>
         </article>
@@ -67,7 +68,7 @@
         <div class="section-heading">
           <div>
             <h2>Aggregate metrics</h2>
-            <p class="muted">Scores and pass rates for the selected run</p>
+            <p class="muted">Seven DeepEval metrics for the selected conversation</p>
           </div>
         </div>
         <div class="table-wrap">
@@ -75,14 +76,14 @@
             <thead>
               <tr>
                 <th scope="col">Metric</th>
-                <th scope="col">Average score</th>
-                <th scope="col">Pass rate</th>
-                <th scope="col">Passed / failed</th>
-                <th scope="col">Total</th>
+                <th scope="col">Score</th>
+                <th scope="col">Threshold</th>
+                <th scope="col">Result</th>
+                <th scope="col">Reason</th>
               </tr>
             </thead>
             <tbody id="metrics-table-body">
-              <tr><td class="empty-cell" colspan="5">No evaluation results yet.</td></tr>
+              <tr><td class="empty-cell" colspan="5">Select a chat to inspect its evaluation.</td></tr>
             </tbody>
           </table>
         </div>
@@ -91,20 +92,20 @@
       <section class="case-layout">
         <div class="dashboard-card case-list-card">
           <div class="section-heading">
-            <h2>Test cases</h2>
-            <span class="muted" id="case-list-summary">--</span>
+            <h2>Conversation</h2>
+            <span class="muted" id="case-list-summary">Select a chat</span>
           </div>
-          <div class="case-list" id="case-list">
-            <p class="empty-state">Run an evaluation to see test cases.</p>
+          <div class="conversation-transcript" id="conversation-transcript">
+            <p class="empty-state">Choose a chat to see its complete conversation.</p>
           </div>
         </div>
 
         <article class="dashboard-card case-detail-card" id="case-detail">
-          <div class="empty-state detail-empty">Select a test case to inspect its input, tool calls, output, and metric reasons.</div>
+          <div class="empty-state detail-empty">Select a chat to inspect tool calls and metric explanations.</div>
         </article>
       </section>
 
-      <p class="dashboard-footnote">Evaluation runs call the configured agent and judge models and may use paid API credits. This dashboard is intended for local development.</p>
+      <p class="dashboard-footnote">Evaluating a chat calls the configured judge model and may use paid API credits. Plan metrics use the recorded conversation and tool activity, not hidden model reasoning. Chats and results are stored locally.</p>
     </main>
   </body>
 </html>

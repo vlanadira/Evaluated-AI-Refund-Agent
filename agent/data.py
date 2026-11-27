@@ -48,7 +48,7 @@ users_data = {
     "customer_006": {
         "rfid_reader_rc522": {
             "price": 35000,
-            "date": "2026-10-10"
+            "date": "2026-11-10"
         },
         "rfid_card_tag": {
             "price": 8000,

@@ -1,14 +1,16 @@
-const runSelect = document.querySelector("#run-select");
+const CHAT_SELECTION_KEY = "refund-agent-developer-chat";
+const chatSelect = document.querySelector("#chat-select");
+const refreshButton = document.querySelector("#refresh-chats");
 const runButton = document.querySelector("#run-evaluation");
-const runSubtitle = document.querySelector("#run-subtitle");
+const chatSubtitle = document.querySelector("#chat-subtitle");
 const jobBanner = document.querySelector("#job-banner");
 const metricsTableBody = document.querySelector("#metrics-table-body");
-const caseList = document.querySelector("#case-list");
+const transcript = document.querySelector("#conversation-transcript");
 const caseDetail = document.querySelector("#case-detail");
 
-let runs = [];
-let selectedRunId = null;
-let currentJob = null;
+let chats = [];
+let selectedChatId = sessionStorage.getItem(CHAT_SELECTION_KEY);
+let selectedChat = null;
 let pollTimer = null;
 
 function setText(selector, value) {
@@ -28,7 +30,7 @@ function formatScore(value) {
 }
 
 function formatDate(value) {
-  if (!value) return "Saved run";
+  if (!value) return "Date unavailable";
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
 }
@@ -40,207 +42,156 @@ function createElement(tag, className, text) {
   return element;
 }
 
-function selectedRun() {
-  return runs.find((run) => run.id === selectedRunId) || runs[0] || null;
+function selectedChatOption() {
+  return chats.find((chat) => chat.id === selectedChatId) || null;
 }
 
-function renderRunOptions() {
-  runSelect.replaceChildren();
-  if (runs.length === 0) {
-    runSelect.add(new Option("No saved runs", ""));
-    runSelect.disabled = true;
+function renderChatOptions() {
+  chatSelect.replaceChildren();
+  if (chats.length === 0) {
+    chatSelect.add(new Option("No conversations yet", ""));
+    chatSelect.disabled = true;
+    selectedChatId = null;
+    sessionStorage.removeItem(CHAT_SELECTION_KEY);
     return;
   }
 
-  runSelect.disabled = false;
-  for (const run of runs) {
-    runSelect.add(new Option(formatDate(run.createdAt), run.id));
+  chatSelect.disabled = false;
+  for (const chat of chats) {
+    chatSelect.add(new Option(chat.title, chat.id));
   }
-  if (!runs.some((run) => run.id === selectedRunId)) {
-    selectedRunId = runs[0].id;
+  if (!chats.some((chat) => chat.id === selectedChatId)) {
+    selectedChatId = chats[0].id;
   }
-  runSelect.value = selectedRunId;
+  chatSelect.value = selectedChatId;
+  sessionStorage.setItem(CHAT_SELECTION_KEY, selectedChatId);
 }
 
-function renderSummary(run) {
-  if (!run) {
+function renderSummary(chat) {
+  if (!chat) {
+    setText("#case-list-summary", "Select a chat");
     setText("#stat-pass-rate", "--");
-    setText("#stat-pass-detail", "No run selected");
-    setText("#stat-average-label", "Task Completion (avg)");
+    setText("#stat-pass-detail", "No chat selected");
     setText("#stat-average", "--");
     document.querySelector("#stat-average-bar").style.width = "0";
     setText("#stat-cases", "--");
-    setText("#stat-metrics-detail", "-- metrics");
+    setText("#stat-metrics-detail", "No chat selected");
     setText("#stat-failures", "--");
     setText("#stat-failure-detail", "Nothing to review");
     return;
   }
 
-  setText("#stat-pass-rate", formatPercent(run.passRate));
-  setText("#stat-pass-detail", `${run.passed} passed · ${run.failed} failed`);
-
-  const taskAverage = run.taskCompletionAverage;
-  const average = taskAverage ?? run.averageScore;
-  setText(
-    "#stat-average-label",
-    taskAverage === null || taskAverage === undefined
-      ? "Average score"
-      : "Task Completion (avg)",
-  );
-  setText("#stat-average", formatScore(average));
-  document.querySelector("#stat-average-bar").style.width =
-    typeof average === "number" ? `${Math.max(0, Math.min(1, average)) * 100}%` : "0";
-  setText("#stat-cases", String(run.totalCases));
-  setText("#stat-metrics-detail", `${run.metrics.length} metric${run.metrics.length === 1 ? "" : "s"}`);
-  setText("#stat-failures", String(run.failed));
-  setText(
-    "#stat-failure-detail",
-    run.failed === 0 ? "Nothing to review" : `${run.failed} case${run.failed === 1 ? "" : "s"} need review`,
-  );
-  runSubtitle.textContent = `${formatDate(run.createdAt)} · ${run.totalCases} test cases · ${run.metrics.length} metrics`;
-}
-
-function renderMetricTable(run) {
-  metricsTableBody.replaceChildren();
-  if (!run || run.metrics.length === 0) {
-    const row = document.createElement("tr");
-    row.append(createElement("td", "empty-cell", "No metric results in this run."));
-    row.firstChild.colSpan = 5;
-    metricsTableBody.append(row);
-    return;
-  }
-
-  for (const metric of run.metrics) {
-    const row = document.createElement("tr");
-    row.append(createElement("td", "metric-name-cell", metric.name));
-    row.append(createElement("td", "", formatScore(metric.averageScore)));
-    const passCell = document.createElement("td");
-    const badge = createElement(
-      "span",
-      `metric-badge${metric.failed > 0 ? " fail" : ""}`,
-      formatPercent(metric.passRate),
-    );
-    passCell.append(badge);
-    row.append(passCell);
-    row.append(createElement("td", "", `${metric.passed} / ${metric.failed}`));
-    row.append(createElement("td", "", String(metric.total)));
-    metricsTableBody.append(row);
-  }
-}
-
-function renderCaseList(run) {
-  caseList.replaceChildren();
-  if (!run || run.cases.length === 0) {
-    caseList.append(createElement("p", "empty-state", "No test cases in this run."));
-    setText("#case-list-summary", "No cases");
-    return;
-  }
-
-  const failures = run.cases.filter((testCase) => !testCase.success).length;
+  const evaluation = chat.evaluation;
   setText(
     "#case-list-summary",
-    failures === 0 ? "All passed" : `${failures} failed`,
+    `${chat.messages.length} message${chat.messages.length === 1 ? "" : "s"}`,
   );
-  for (const testCase of run.cases) {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = `case-list-button${testCase.name === selectedCaseName ? " selected" : ""}`;
-    button.addEventListener("click", () => {
-      selectedCaseName = testCase.name;
-      renderCaseList(run);
-      renderCaseDetail(testCase);
-    });
+  setText("#stat-cases", String(chat.messages.length));
+  const userTurns = chat.messages.filter((message) => message.role === "user").length;
+  setText(
+    "#stat-metrics-detail",
+    `${userTurns} customer message${userTurns === 1 ? "" : "s"}`,
+  );
+  if (!evaluation) {
+    setText("#stat-pass-rate", "--");
+    setText("#stat-pass-detail", "Not evaluated yet");
+    setText("#stat-average", "--");
+    document.querySelector("#stat-average-bar").style.width = "0";
+    setText("#stat-failures", "--");
+    setText("#stat-failure-detail", "Run an evaluation to see results");
+    return;
+  }
 
-    button.append(createElement("span", "case-list-name", testCase.name));
-    button.append(
+  setText("#stat-pass-rate", formatPercent(evaluation.passRate));
+  setText(
+    "#stat-pass-detail",
+    `${evaluation.passed} passed · ${evaluation.failed} need review`,
+  );
+  setText("#stat-average", formatScore(evaluation.averageScore));
+  document.querySelector("#stat-average-bar").style.width =
+    typeof evaluation.averageScore === "number"
+      ? `${Math.max(0, Math.min(1, evaluation.averageScore)) * 100}%`
+      : "0";
+  setText("#stat-failures", String(evaluation.failed));
+  setText(
+    "#stat-failure-detail",
+    evaluation.failed === 0 ? "All scored metrics passed" : "Review metric explanations below",
+  );
+}
+
+function renderMetrics(chat) {
+  metricsTableBody.replaceChildren();
+  const metrics = chat?.evaluation?.metrics || [];
+  if (metrics.length === 0) {
+    const row = document.createElement("tr");
+    const cell = createElement(
+      "td",
+      "empty-cell",
+      chat?.evaluationStatus === "failed"
+        ? chat.evaluationError || "Evaluation failed."
+        : "No evaluation results for this chat yet.",
+    );
+    cell.colSpan = 5;
+    row.append(cell);
+    metricsTableBody.append(row);
+    return;
+  }
+
+  for (const metric of metrics) {
+    const row = document.createElement("tr");
+    row.append(createElement("td", "metric-name-cell", metric.name));
+    row.append(createElement("td", "", formatScore(metric.score)));
+    row.append(createElement("td", "", formatScore(metric.threshold)));
+    const resultCell = document.createElement("td");
+    const resultText = metric.error
+      ? "Error"
+      : metric.success
+        ? "Passed"
+        : "Review";
+    resultCell.append(
       createElement(
         "span",
-        `case-list-status${testCase.success ? "" : " fail"}`,
-        testCase.success ? "Passed" : "Review",
+        `metric-badge${metric.success ? "" : " fail"}`,
+        resultText,
       ),
     );
-    caseList.append(button);
+    row.append(resultCell);
+    row.append(createElement("td", "metric-table-reason", metric.error || metric.reason || "No reason recorded."));
+    metricsTableBody.append(row);
   }
 }
 
-let selectedCaseName = null;
-
-function renderCaseDetail(testCase) {
-  if (!testCase) {
-    caseDetail.replaceChildren(
-      createElement(
-        "div",
-        "empty-state detail-empty",
-        "Select a test case to inspect its input, tool calls, output, and metric reasons.",
-      ),
+function renderTranscript(chat) {
+  transcript.replaceChildren();
+  if (!chat || chat.messages.length === 0) {
+    transcript.append(
+      createElement("p", "empty-state", "This chat has no messages yet."),
     );
     return;
   }
 
-  caseDetail.replaceChildren();
-  const heading = createElement("div", "case-detail-title");
-  heading.append(createElement("h2", "", testCase.name));
-  heading.append(
-    createElement(
-      "span",
-      `status-pill${testCase.success ? "" : " fail"}`,
-      testCase.success ? "Passed" : "Review",
-    ),
-  );
-  caseDetail.append(heading);
-
-  addDetailSection(caseDetail, "Customer input", testCase.input || "No input recorded");
-
-  const toolsSection = createElement("section", "detail-section");
-  toolsSection.append(createElement("span", "detail-label", "Tools called"));
-  const toolsList = createElement("div", "tool-chip-list");
-  if (testCase.toolsCalled.length === 0) {
-    toolsList.append(createElement("span", "detail-content", "No tool calls"));
-  } else {
-    for (const tool of testCase.toolsCalled) {
-      let label = tool.name;
-      if (tool.arguments && Object.keys(tool.arguments).length > 0) {
-        label += `  ${JSON.stringify(tool.arguments)}`;
+  for (const message of chat.messages) {
+    const entry = createElement(
+      "article",
+      `conversation-turn ${message.role === "user" ? "customer-turn" : "assistant-turn"}`,
+    );
+    entry.append(
+      createElement(
+        "span",
+        "conversation-role",
+        message.role === "user" ? "Customer" : "Refund assistant",
+      ),
+    );
+    if (Array.isArray(message.events) && message.events.length > 0) {
+      const events = createElement("div", "message-events");
+      for (const event of message.events) {
+        events.append(createElement("span", "event-pill", event.label));
       }
-      toolsList.append(createElement("span", "tool-chip", label));
+      entry.append(events);
     }
+    entry.append(createElement("p", "conversation-text", message.text || ""));
+    transcript.append(entry);
   }
-  toolsSection.append(toolsList);
-  caseDetail.append(toolsSection);
-
-  addDetailSection(
-    caseDetail,
-    "Agent output",
-    testCase.actualOutput || "No assistant output recorded.",
-  );
-
-  const metricsSection = createElement("section", "detail-section");
-  metricsSection.append(createElement("span", "detail-label", "Metric results"));
-  const metricList = createElement("div", "metric-detail-list");
-  if (testCase.metrics.length === 0) {
-    metricList.append(createElement("div", "detail-content", "No metric details recorded."));
-  } else {
-    for (const metric of testCase.metrics) {
-      const card = createElement("article", "metric-detail");
-      const metricHeading = createElement("div", "metric-detail-heading");
-      metricHeading.append(createElement("span", "", metric.name));
-      const scoreText = metric.score === null ? "Error" : formatScore(metric.score);
-      metricHeading.append(
-        createElement(
-          "span",
-          `metric-score${metric.success === false ? " fail" : ""}`,
-          scoreText,
-        ),
-      );
-      card.append(metricHeading);
-      if (metric.error) card.append(createElement("p", "metric-reason", metric.error));
-      else if (metric.reason) card.append(createElement("p", "metric-reason", metric.reason));
-      else card.append(createElement("p", "metric-reason", "No reason recorded."));
-      metricList.append(card);
-    }
-  }
-  metricsSection.append(metricList);
-  caseDetail.append(metricsSection);
 }
 
 function addDetailSection(container, label, content) {
@@ -250,112 +201,173 @@ function addDetailSection(container, label, content) {
   container.append(section);
 }
 
-function renderSelectedRun() {
-  const run = selectedRun();
-  renderSummary(run);
-  renderMetricTable(run);
-  renderCaseList(run);
-  if (!run) {
-    selectedCaseName = null;
-    renderCaseDetail(null);
+function renderDetails(chat) {
+  if (!chat) {
+    caseDetail.replaceChildren(
+      createElement("div", "empty-state detail-empty", "Select a chat to inspect its tool calls and evaluation."),
+    );
     return;
   }
-  const testCase = run.cases.find((item) => item.name === selectedCaseName) || run.cases[0];
-  selectedCaseName = testCase ? testCase.name : null;
-  renderCaseList(run);
-  renderCaseDetail(testCase);
+
+  caseDetail.replaceChildren();
+  const heading = createElement("div", "case-detail-title");
+  heading.append(createElement("h2", "", chat.title));
+  const statusText = chat.evaluationStatus || "Not evaluated";
+  heading.append(
+    createElement(
+      "span",
+      `status-pill${chat.evaluationStatus === "failed" ? " fail" : ""}`,
+      statusText,
+    ),
+  );
+  caseDetail.append(heading);
+  addDetailSection(caseDetail, "Last activity", formatDate(chat.updatedAt));
+
+  const toolsSection = createElement("section", "detail-section");
+  toolsSection.append(createElement("span", "detail-label", "Tool calls"));
+  const toolsList = createElement("div", "tool-chip-list");
+  const tools = chat.evaluation?.toolsCalled || [];
+  if (tools.length === 0) {
+    toolsList.append(createElement("span", "detail-content", "No tool calls in this conversation."));
+  } else {
+    for (const tool of tools) {
+      const label = tool.arguments && Object.keys(tool.arguments).length > 0
+        ? `${tool.name}  ${JSON.stringify(tool.arguments)}`
+        : tool.name;
+      toolsList.append(createElement("span", "tool-chip", label));
+    }
+  }
+  toolsSection.append(toolsList);
+  caseDetail.append(toolsSection);
+
+  if (chat.evaluation?.createdAt) {
+    addDetailSection(caseDetail, "Evaluated", formatDate(chat.evaluation.createdAt));
+  }
+  if (!chat.evaluation && chat.evaluationError) {
+    addDetailSection(caseDetail, "Evaluation error", chat.evaluationError);
+  }
 }
 
-function renderJob(job) {
-  currentJob = job;
-  if (!job) {
-    jobBanner.hidden = true;
-    runButton.disabled = false;
+function renderChat(chat) {
+  selectedChat = chat;
+  renderSummary(chat);
+  renderMetrics(chat);
+  renderTranscript(chat);
+  renderDetails(chat);
+
+  if (!chat) {
+    chatSubtitle.textContent = "No saved customer chats yet.";
+    runButton.disabled = true;
     return;
   }
+  chatSubtitle.textContent =
+    `${chat.title} · Last activity ${formatDate(chat.updatedAt)} · ${chat.messages.length} messages`;
+  const running = ["queued", "running"].includes(chat.evaluationStatus);
+  runButton.disabled = running || !chat.messages.some((message) => message.role === "user");
 
-  if (job.status === "running" || job.status === "queued") {
+  if (running) {
     jobBanner.hidden = false;
     jobBanner.classList.remove("error");
-    jobBanner.textContent = "Evaluation is running. It may take several minutes while the agent and judge process each case.";
-    runButton.disabled = true;
-  } else if (job.status === "failed") {
+    jobBanner.textContent = "Evaluating the complete conversation with all seven metrics. This may take a few minutes.";
+  } else if (chat.evaluationStatus === "failed") {
     jobBanner.hidden = false;
     jobBanner.classList.add("error");
-    jobBanner.textContent = job.error || "Evaluation failed. Check the server terminal for details.";
-    runButton.disabled = false;
-  } else {
+    jobBanner.textContent = chat.evaluationError || "Evaluation failed.";
+  } else if (chat.evaluationStatus === "completed") {
     jobBanner.hidden = false;
     jobBanner.classList.remove("error");
-    jobBanner.textContent = "Evaluation completed. Results have been saved.";
-    runButton.disabled = false;
+    jobBanner.textContent = "Evaluation completed. Results are saved with this chat.";
+  } else {
+    jobBanner.hidden = true;
   }
 }
 
-async function loadEvaluations() {
-  const response = await fetch("/api/evaluations", { cache: "no-store" });
+async function loadSelectedChat() {
+  if (!selectedChatId) {
+    renderChat(null);
+    return null;
+  }
+  const response = await fetch(`/api/chats/${encodeURIComponent(selectedChatId)}`, {
+    cache: "no-store",
+  });
   const result = await response.json();
-  if (!response.ok) throw new Error(result.error || "Could not load evaluation results.");
-  runs = Array.isArray(result.runs) ? result.runs : [];
-  renderRunOptions();
-  renderSelectedRun();
-  renderJob(result.job);
+  if (!response.ok) throw new Error(result.error || "Could not load this chat.");
+  renderChat(result.chat);
+  return result.chat;
+}
+
+async function loadChats() {
+  const response = await fetch("/api/chats", { cache: "no-store" });
+  const result = await response.json();
+  if (!response.ok) throw new Error(result.error || "Could not load customer chats.");
+  chats = Array.isArray(result.chats) ? result.chats : [];
+  renderChatOptions();
+  return loadSelectedChat();
+}
+
+function showLoadError(error) {
+  chatSubtitle.textContent = error.message || "Could not load customer chats.";
+  jobBanner.hidden = false;
+  jobBanner.classList.add("error");
+  jobBanner.textContent = error.message || "Could not load customer chats.";
+  runButton.disabled = true;
 }
 
 async function pollEvaluation() {
   try {
-    await loadEvaluations();
-    if (currentJob && ["queued", "running"].includes(currentJob.status)) {
+    const chat = await loadSelectedChat();
+    if (chat && ["queued", "running"].includes(chat.evaluationStatus)) {
       pollTimer = window.setTimeout(pollEvaluation, 1800);
-    } else if (currentJob && currentJob.status === "completed" && currentJob.runId) {
-      selectedRunId = currentJob.runId;
-      renderRunOptions();
-      renderSelectedRun();
+    } else {
+      await loadChats();
     }
   } catch (error) {
-    jobBanner.hidden = false;
-    jobBanner.classList.add("error");
-    jobBanner.textContent = error.message || "Could not refresh evaluation status.";
+    showLoadError(error);
   }
 }
 
-runSelect.addEventListener("change", () => {
-  selectedRunId = runSelect.value;
-  selectedCaseName = null;
-  renderSelectedRun();
+chatSelect.addEventListener("change", () => {
+  selectedChatId = chatSelect.value;
+  sessionStorage.setItem(CHAT_SELECTION_KEY, selectedChatId);
+  window.clearTimeout(pollTimer);
+  loadSelectedChat().catch(showLoadError);
+});
+
+refreshButton.addEventListener("click", () => {
+  loadChats().catch(showLoadError);
 });
 
 runButton.addEventListener("click", async () => {
+  if (!selectedChatId) return;
   const confirmed = window.confirm(
-    "Run all evaluation cases? This calls the configured agent and judge models and may use paid API credits.",
+    "Evaluate this entire conversation with all seven metrics? The judge model may use paid API credits.",
   );
   if (!confirmed) return;
 
   runButton.disabled = true;
   jobBanner.hidden = false;
   jobBanner.classList.remove("error");
-  jobBanner.textContent = "Starting evaluation...";
+  jobBanner.textContent = "Starting chat evaluation...";
   try {
-    const response = await fetch("/api/evaluations/run", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({}),
-    });
+    const response = await fetch(
+      `/api/chats/${encodeURIComponent(selectedChatId)}/evaluate`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      },
+    );
     const result = await response.json();
-    if (!response.ok) throw new Error(result.error || "Could not start evaluation.");
-    renderJob(result.job);
+    if (!response.ok) throw new Error(result.error || "Could not start chat evaluation.");
+    await loadSelectedChat();
     window.clearTimeout(pollTimer);
-    pollTimer = window.setTimeout(pollEvaluation, 1000);
+    pollTimer = window.setTimeout(pollEvaluation, 1200);
   } catch (error) {
+    jobBanner.hidden = false;
     jobBanner.classList.add("error");
-    jobBanner.textContent = error.message || "Could not start evaluation.";
+    jobBanner.textContent = error.message || "Could not start chat evaluation.";
     runButton.disabled = false;
   }
 });
 
-loadEvaluations().catch((error) => {
-  runSubtitle.textContent = error.message || "Could not load evaluation results.";
-  jobBanner.hidden = false;
-  jobBanner.classList.add("error");
-  jobBanner.textContent = error.message || "Could not load evaluation results.";
-});
+loadChats().catch(showLoadError);

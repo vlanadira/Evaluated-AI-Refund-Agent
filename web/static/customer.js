@@ -1,36 +1,18 @@
-const THREAD_KEY = "refund-agent-thread-id";
-const HISTORY_KEY = "refund-agent-chat-history";
+const CHAT_KEY = "refund-agent-chat-id";
 const messagesElement = document.querySelector("#chat-messages");
 const chatForm = document.querySelector("#chat-form");
 const chatInput = document.querySelector("#chat-input");
 const sendButton = document.querySelector("#send-button");
 const newChatButton = document.querySelector("#new-chat");
 
-let threadId = sessionStorage.getItem(THREAD_KEY);
-let messages = loadMessages();
+let chatId = sessionStorage.getItem(CHAT_KEY);
+let messages = [];
 let waiting = false;
-
-if (messages.length === 0) {
-  messages = [
-    {
-      role: "assistant",
-      text: "Hi! I’m your refund assistant. I can help review your purchases and refund requests.",
-    },
-  ];
-}
-
-function loadMessages() {
-  try {
-    const stored = JSON.parse(sessionStorage.getItem(HISTORY_KEY) || "[]");
-    return Array.isArray(stored) ? stored : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveMessages() {
-  sessionStorage.setItem(HISTORY_KEY, JSON.stringify(messages));
-}
+let chatReady = false;
+const welcomeMessage = {
+  role: "assistant",
+  text: "Hi! I’m your refund assistant. I can help review your purchases and refund requests.",
+};
 
 function formatPrice(value) {
   return `Rp ${new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(value)}`;
@@ -122,13 +104,15 @@ function renderMessage(entry) {
 
 function renderAllMessages() {
   messagesElement.replaceChildren();
-  for (const message of messages) renderMessage(message);
+  for (const message of messages.length > 0 ? messages : [welcomeMessage]) {
+    renderMessage(message);
+  }
 }
 
 function setWaiting(value) {
   waiting = value;
-  sendButton.disabled = value;
-  chatInput.disabled = value;
+  sendButton.disabled = value || !chatReady;
+  chatInput.disabled = value || !chatReady;
 
   const existing = document.querySelector("#assistant-typing");
   if (existing) existing.remove();
@@ -153,39 +137,43 @@ function setWaiting(value) {
 
 async function sendMessage(text) {
   const cleanText = text.trim();
-  if (!cleanText || waiting) return;
+  if (!cleanText || waiting || !chatReady) return;
 
   messages.push({ role: "user", text: cleanText });
   renderAllMessages();
-  saveMessages();
   setWaiting(true);
   chatInput.value = "";
   chatInput.style.height = "auto";
 
   try {
+    if (!chatId) {
+      const createResponse = await fetch("/api/chats", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      const created = await createResponse.json();
+      if (!createResponse.ok) throw new Error(created.error || "Could not create a chat.");
+      chatId = created.chat.id;
+      sessionStorage.setItem(CHAT_KEY, chatId);
+    }
+
     const response = await fetch("/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: cleanText, threadId }),
+      body: JSON.stringify({ message: cleanText, chatId }),
     });
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || "The assistant request failed.");
 
-    threadId = result.threadId;
-    sessionStorage.setItem(THREAD_KEY, threadId);
-    messages.push({
-      role: "assistant",
-      text: result.message,
-      events: result.events,
-      purchases: result.purchases,
-    });
-    saveMessages();
+    chatId = result.chatId;
+    sessionStorage.setItem(CHAT_KEY, chatId);
+    messages = result.chat.messages;
   } catch (error) {
     messages.push({
       role: "assistant",
       text: error.message || "The refund assistant is temporarily unavailable.",
     });
-    saveMessages();
   } finally {
     setWaiting(false);
     renderAllMessages();
@@ -214,19 +202,59 @@ document.querySelectorAll("[data-message]").forEach((button) => {
   button.addEventListener("click", () => sendMessage(button.dataset.message));
 });
 
-newChatButton.addEventListener("click", () => {
-  if (waiting) return;
-  threadId = null;
-  messages = [
-    {
-      role: "assistant",
-      text: "Hi! I’m your refund assistant. I can help review your purchases and refund requests.",
-    },
-  ];
-  sessionStorage.removeItem(THREAD_KEY);
-  saveMessages();
-  renderAllMessages();
-  chatInput.focus();
+newChatButton.addEventListener("click", async () => {
+  if (waiting || !chatReady) return;
+  setWaiting(true);
+  try {
+    const response = await fetch("/api/chats", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || "Could not create a new chat.");
+    chatId = result.chat.id;
+    sessionStorage.setItem(CHAT_KEY, chatId);
+    messages = [];
+    renderAllMessages();
+    chatInput.focus();
+  } catch (error) {
+    messages = [{ role: "assistant", text: error.message || "Could not create a new chat." }];
+    renderAllMessages();
+  } finally {
+    setWaiting(false);
+  }
 });
 
+async function initializeChat() {
+  if (chatId) {
+    try {
+      const response = await fetch(`/api/chats/${encodeURIComponent(chatId)}`, {
+        cache: "no-store",
+      });
+      const result = await response.json();
+      if (response.ok) {
+        messages = result.chat.messages;
+      } else {
+        chatId = null;
+        sessionStorage.removeItem(CHAT_KEY);
+      }
+    } catch {
+      messages = [
+        {
+          role: "assistant",
+          text: "Could not load this chat. Please check that the web app is running and try again.",
+        },
+      ];
+    }
+  }
+
+  chatReady = true;
+  setWaiting(false);
+  renderAllMessages();
+}
+
+chatInput.disabled = true;
+sendButton.disabled = true;
 renderAllMessages();
+initializeChat();
