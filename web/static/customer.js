@@ -94,7 +94,7 @@ function renderMessage(entry) {
 
   const bubble = document.createElement("div");
   bubble.className = "message-bubble";
-  bubble.textContent = entry.text || "";
+  appendFormattedMessageText(bubble, entry.text);
   stack.append(bubble);
   appendPurchaseCards(stack, entry.purchases);
   row.append(stack);

@@ -653,6 +653,7 @@ class RefundWebHandler(BaseHTTPRequestHandler):
         }
         assets = {
             "/assets/styles.css": ("styles.css", "text/css; charset=utf-8"),
+            "/assets/message-format.js": ("message-format.js", "text/javascript; charset=utf-8"),
             "/assets/customer.js": ("customer.js", "text/javascript; charset=utf-8"),
             "/assets/developer.js": ("developer.js", "text/javascript; charset=utf-8"),
         }

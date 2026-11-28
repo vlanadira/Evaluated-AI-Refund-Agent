@@ -189,7 +189,9 @@ function renderTranscript(chat) {
       }
       entry.append(events);
     }
-    entry.append(createElement("p", "conversation-text", message.text || ""));
+    const messageText = createElement("p", "conversation-text");
+    appendFormattedMessageText(messageText, message.text);
+    entry.append(messageText);
     transcript.append(entry);
   }
 }
