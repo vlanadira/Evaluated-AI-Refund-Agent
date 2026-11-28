@@ -11,7 +11,7 @@ let waiting = false;
 let chatReady = false;
 const welcomeMessage = {
   role: "assistant",
-  text: "Hi! I’m your refund assistant. I can help review your purchases and refund requests.",
+  text: "Hi! I’m the IoTify Refund Assistant. I can help with refund requests and questions about your purchases. How can I help you today?",
 };
 
 function formatPrice(value) {
@@ -52,15 +52,24 @@ function appendPurchaseCards(container, purchases) {
     price.className = "purchase-price";
     price.textContent = formatPrice(purchase.price);
 
-    const request = document.createElement("button");
-    request.type = "button";
-    request.className = "outline-button";
-    request.textContent = "Request refund";
-    request.addEventListener("click", () => {
-      sendMessage(`I would like a refund for the ${purchase.name}`);
-    });
+    if (purchase.refundIssued) {
+      const status = document.createElement("span");
+      status.className = "purchase-refund-status";
+      status.textContent = "Refund issued";
+      card.append(info, price, status);
+    } else {
+      const request = document.createElement("button");
+      request.type = "button";
+      request.className = "outline-button";
+      request.textContent = "Request refund";
+      request.addEventListener("click", () => {
+        sendMessage(
+          `I would like a refund for the ${purchase.displayName || purchase.name.replaceAll("_", " ")}`,
+        );
+      });
+      card.append(info, price, request);
+    }
 
-    card.append(info, price, request);
     cards.append(card);
   }
   container.append(cards);

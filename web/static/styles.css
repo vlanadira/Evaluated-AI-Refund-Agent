@@ -333,6 +333,16 @@ a {
   font-weight: 700;
 }
 
+.purchase-refund-status {
+  padding: 7px 10px;
+  color: var(--green);
+  background: #eaf6ef;
+  border-radius: 9px;
+  font-size: 11px;
+  font-weight: 680;
+  white-space: nowrap;
+}
+
 .outline-button {
   min-height: 34px;
   padding: 7px 11px;

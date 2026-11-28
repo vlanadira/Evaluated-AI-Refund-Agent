@@ -125,7 +125,7 @@ def list_chats():
     ]
 
 
-def append_turn(chat_id, agent_messages, display_messages, username):
+def append_turn(chat_id, agent_messages, display_messages, username, refunded_items=()):
     now = _now()
     with _connect() as connection:
         row = connection.execute(
@@ -136,6 +136,12 @@ def append_turn(chat_id, agent_messages, display_messages, username):
             raise LookupError("Chat not found.")
 
         messages = json.loads(row["display_messages"])
+        refunded_items = set(refunded_items)
+        if refunded_items:
+            for message in messages:
+                for purchase in message.get("purchases", []):
+                    if purchase.get("name") in refunded_items:
+                        purchase["refundIssued"] = True
         messages.extend(display_messages)
         connection.execute(
             """

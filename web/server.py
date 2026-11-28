@@ -93,10 +93,16 @@ def _final_assistant_message(messages):
 
 def _purchase_items_for_turn(messages):
     username = None
+    refund_requested = False
     for message in messages:
         for call in getattr(message, "tool_calls", []) or []:
             if call.get("name") == "get_user_purchase_history":
                 username = (call.get("args") or {}).get("user")
+            elif call.get("name") == "issue_refund_ticket":
+                refund_requested = True
+
+    if refund_requested:
+        return []
 
     purchases = users_data.get(username) if isinstance(username, str) else None
     if not isinstance(purchases, dict):
@@ -114,6 +120,48 @@ def _purchase_items_for_turn(messages):
         and isinstance(details.get("price"), (int, float))
         and isinstance(details.get("date"), str)
     ]
+
+
+def _refunded_items_for_turn(messages):
+    calls = {}
+    refunded_items = []
+    for message in messages:
+        for call in getattr(message, "tool_calls", []) or []:
+            if call.get("name") != "issue_refund_ticket":
+                continue
+            call_id = call.get("id")
+            items = (call.get("args") or {}).get("items", [])
+            if isinstance(call_id, str) and isinstance(items, list):
+                calls[call_id] = [
+                    item["name"]
+                    for item in items
+                    if isinstance(item, dict) and isinstance(item.get("name"), str)
+                ]
+
+        if (
+            getattr(message, "type", None) != "tool"
+            or getattr(message, "name", None) != "issue_refund_ticket"
+        ):
+            continue
+
+        call_id = getattr(message, "tool_call_id", None)
+        item_names = calls.get(call_id, [])
+        result = _message_text(getattr(message, "content", None))
+        if "ticket has been issued successfully" not in result.casefold():
+            continue
+
+        eligible_names = {
+            line.partition(": eligible")[0]
+            for line in result.splitlines()
+            if ": eligible (" in line
+        }
+        for item_name in item_names:
+            if (
+                display_item_name(item_name) in eligible_names
+                and item_name not in refunded_items
+            ):
+                refunded_items.append(item_name)
+    return refunded_items
 
 
 def _tool_events(messages):
@@ -821,6 +869,7 @@ class RefundWebHandler(BaseHTTPRequestHandler):
                 raise RuntimeError("The agent did not return a final assistant message.")
             events = _tool_events(turn_messages)
             purchases = _purchase_items_for_turn(turn_messages)
+            refunded_items = _refunded_items_for_turn(turn_messages)
             updated_chat = append_turn(
                 chat_id,
                 messages_to_dict(messages),
@@ -834,6 +883,7 @@ class RefundWebHandler(BaseHTTPRequestHandler):
                     },
                 ],
                 _username_for_messages(messages, chat["username"]),
+                refunded_items=refunded_items,
             )
             with _chat_thread_lock:
                 _chat_threads[chat_id] = thread_id
